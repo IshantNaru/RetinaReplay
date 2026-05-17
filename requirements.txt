@@ -1,0 +1,85 @@
+# RetinaReplay — Requirements
+# Python 3.9+
+#
+# Install: pip install -r requirements.txt
+#
+# CUDA NOTE:
+#   The environment this was developed on used torch 2.5.1+cu121 (CUDA 12.1).
+#   Install the correct CUDA variant for your GPU from https://pytorch.org/get-started
+#   Example (CUDA 12.1):
+#     pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 \
+#       --index-url https://download.pytorch.org/whl/cu121
+#   CPU-only (not recommended for reconstruction):
+#     pip install torch==2.5.1 torchvision==0.20.1
+#
+# See INSTALL NOTES at the bottom for packages requiring manual setup.
+
+# ── Core ML ───────────────────────────────────────────────────────────────────
+numpy==2.2.6
+scikit-learn==1.7.1
+scipy==1.16.1
+
+# ── Deep Learning ─────────────────────────────────────────────────────────────
+# NOTE: pytorch-lightning 1.9.4 specifically — API is not compatible with 2.x
+pytorch-lightning==1.9.4
+omegaconf==2.3.0
+einops==0.8.1
+timm==1.0.19
+kornia==0.8.1
+kornia_rs==0.1.9
+fairscale==0.4.13
+transformers==4.46.3
+safetensors==0.6.2
+diffusers==0.34.0
+lpips==0.1.4
+
+# ── fMRI / Neuroscience ───────────────────────────────────────────────────────
+himalaya==0.4.6
+nibabel==5.3.2
+
+# ── Computer Vision & Image ───────────────────────────────────────────────────
+Pillow==11.3.0
+opencv-python==4.12.0.88
+matplotlib==3.10.5
+invisible-watermark==0.2.0
+
+# ── Data & I/O ────────────────────────────────────────────────────────────────
+pandas==2.3.1
+h5py==3.14.0
+dask==2025.7.0
+pycocotools==2.0.10
+tqdm==4.67.1
+ftfy==6.3.1
+regex==2025.7.34
+PyYAML==6.0.2
+requests==2.32.4
+
+# ── HuggingFace ───────────────────────────────────────────────────────────────
+huggingface-hub==0.34.4
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INSTALL NOTES — packages requiring manual setup
+# ══════════════════════════════════════════════════════════════════════════════
+
+# 1. OpenAI CLIP (exact commit used during development)
+#    pip install git+https://github.com/openai/CLIP.git@dcba3cb2e2827b402d2701e7e1c7d9fed8a20ef1
+
+# 2. Taming Transformers (required by Stable Diffusion ldm)
+#    pip install git+https://github.com/CompVis/taming-transformers.git@3ba01b241669f5ade541ce990f7650a3b8f65318
+
+# 3. NSD Access (Natural Scenes Dataset utility library)
+#    Not available on PyPI. Install from:
+#    pip install git+https://github.com/tknapen/nsd_access.git
+#    Requires NSD dataset access — see http://naturalscenesdataset.org
+
+# 4. Stable Diffusion v1.4 — ldm (local dependency)
+#    Clone CompVis stable-diffusion into codes/diffusion_sd1/:
+#    mkdir -p codes/diffusion_sd1
+#    git clone https://github.com/CompVis/stable-diffusion codes/diffusion_sd1/stable-diffusion
+#    cd codes/diffusion_sd1/stable-diffusion && pip install -e .
+#
+#    Place weights at:
+#    codes/diffusion_sd1/stable-diffusion/models/ldm/stable-diffusion-v1/sd-v1-4.ckpt
+#
+#    Download sd-v1-4.ckpt from:
+#    https://huggingface.co/CompVis/stable-diffusion-v1-4

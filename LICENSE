@@ -1,0 +1,54 @@
+Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
+
+Copyright (c) 2026 Ishant Naru
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivatives 4.0 International License.
+
+You are free to:
+  Share — copy and redistribute the material in any medium or format.
+
+Under the following terms:
+  Attribution   — You must give appropriate credit, provide a link to the
+                  license, and indicate if changes were made.
+  NonCommercial — You may not use the material for commercial purposes.
+  NoDerivatives — If you remix, transform, or build upon the material,
+                  you may not distribute the modified material.
+
+No additional restrictions — You may not apply legal terms or technological
+measures that legally restrict others from doing anything the license permits.
+
+Full license text: https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
+
+──────────────────────────────────────────────────────────────────────────────
+
+ADDITIONAL TERMS — Gated Prediction Files
+
+The pre-decoded prediction files (.npy) and Stable Diffusion v1.4 weights
+hosted on HuggingFace under IshantSingh94/RetinaReplay are subject to
+additional access terms:
+
+  1. Access is granted for non-commercial research and educational use only.
+  2. Redistribution of prediction files or weights is not permitted.
+  3. Any publication using these files must cite the RetinaReplay paper.
+  4. Access may be revoked for misuse or violation of these terms.
+
+Stable Diffusion v1.4 weights are subject to the CompVis model license:
+  https://huggingface.co/CompVis/stable-diffusion-v1-4
+
+The Natural Scenes Dataset is subject to its own terms of use:
+  http://naturalscenesdataset.org
+
+──────────────────────────────────────────────────────────────────────────────
+
+CITATION
+
+If you use this code or the prediction files in your research, please cite:
+
+  @article{naru2026retinareplay,
+    title   = {RetinaReplay: Generative Reconstruction of Visual Perceptions
+               from Brain fMRI Data via Lightweight MLP Encoders},
+    author  = {Naru, Ishant},
+    journal = {arXiv preprint arXiv:XXXX.XXXXX},
+    year    = {2026}
+  }

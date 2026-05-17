@@ -1,0 +1,69 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+venv/
+env/
+.env/
+.venv/
+
+# ── Data — NEVER commit these ─────────────────────────────────────────────────
+# NSD raw data
+nsd/
+mrifeat/
+nsdfeat/
+
+# Prediction arrays and decoded outputs
+decoded/
+*.npy
+*.npy.gz
+
+# Model weights
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.bin
+
+# ── HuggingFace cache ─────────────────────────────────────────────────────────
+.cache/
+
+# ── Stable Diffusion (local install) ─────────────────────────────────────────
+diffusion_sd1/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ── Logs and temp ─────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+outputs/
+runs/
+wandb/
+lightning_logs/
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+*.env
+secrets.yaml
