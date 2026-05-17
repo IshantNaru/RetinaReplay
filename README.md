@@ -1,7 +1,7 @@
 # RetinaReplay — Generative Reconstruction of Visual Perceptions from Brain fMRI Data
 
 <p align="center">
-  <img src="assets/pipeline_overview.png" alt="RetinaReplay Pipeline" width="800"/>
+  <img src="assets/pipeline_overview.png" alt="RetinaReplay Pipeline" width="600"/>
 </p>
 
 <p align="center">
@@ -47,15 +47,10 @@
 
 ## Qualitative Comparisons
 
-<p align="center">
-  <img src="assets/results_grid1.png" alt="Qualitative Results Grid 1" width="800"/>
-  <br/>
-  <em>Col 1 (red border): Ground Truth · Col 2: Takagi & Nishimoto baseline · Cols 3–8: RetinaReplay variants</em>
-</p>
+![Qualitative Results Grid 1](assets/results_grid1.png)
+*Col 1 (red border): Ground Truth · Col 2: Takagi & Nishimoto baseline · Cols 3–8: RetinaReplay variants*
 
-<p align="center">
-  <img src="assets/results_grid2.png" alt="Qualitative Results Grid 2" width="800"/>
-</p>
+![Qualitative Results Grid 2](assets/results_grid2.png)
 
 > RetinaReplay reconstructions show **sharper structure**, **improved semantic coherence**, and **reduced checkerboard artifacts** consistently present in the ridge regression baseline.
 
