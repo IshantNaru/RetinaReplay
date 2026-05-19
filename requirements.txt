@@ -1,18 +1,33 @@
 # RetinaReplay — Requirements
 # Python 3.9+
 #
-# Install: pip install -r requirements.txt
+# ══════════════════════════════════════════════════════════════════════════════
+# IMPORTANT: Read the full install notes before running pip install -r
+# The correct install order matters. See README.md Step 2 for full instructions.
+# ══════════════════════════════════════════════════════════════════════════════
 #
-# CUDA NOTE:
-#   The environment this was developed on used torch 2.5.1+cu121 (CUDA 12.1).
-#   Install the correct CUDA variant for your GPU from https://pytorch.org/get-started
-#   Example (CUDA 12.1):
+# STEP 1 — Install PyTorch FIRST with the correct CUDA version for your GPU.
+#           Check your CUDA version: nvidia-smi (top-right of output)
+#           Then install from https://pytorch.org/get-started
+#
+#   CUDA 12.8 (RTX 40xx series):
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#
+#   CUDA 12.1:
 #     pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 \
 #       --index-url https://download.pytorch.org/whl/cu121
-#   CPU-only (not recommended for reconstruction):
-#     pip install torch==2.5.1 torchvision==0.20.1
 #
-# See INSTALL NOTES at the bottom for packages requiring manual setup.
+#   CPU only (reconstruction will be very slow):
+#     pip install torch torchvision
+#
+# STEP 2 — Downgrade setuptools BEFORE installing other packages.
+#           Required for CLIP installation compatibility:
+#     pip install setuptools==80.10.2
+#
+# STEP 3 — Install this requirements.txt:
+#     pip install -r requirements.txt
+#
+# STEP 4 — Install packages requiring manual setup (see INSTALL NOTES below)
 
 # ── Core ML ───────────────────────────────────────────────────────────────────
 numpy==2.2.6
@@ -56,30 +71,32 @@ requests==2.32.4
 
 # ── HuggingFace ───────────────────────────────────────────────────────────────
 huggingface-hub==0.34.4
+hf_xet                        # Optional but recommended — faster HF downloads
 
 # ══════════════════════════════════════════════════════════════════════════════
-# INSTALL NOTES — packages requiring manual setup
+# INSTALL NOTES — packages requiring manual setup (run after pip install -r)
 # ══════════════════════════════════════════════════════════════════════════════
 
-# 1. OpenAI CLIP (exact commit used during development)
-#    pip install git+https://github.com/openai/CLIP.git@dcba3cb2e2827b402d2701e7e1c7d9fed8a20ef1
+# 1. OpenAI CLIP
+#    Must use --no-build-isolation due to setuptools compatibility:
+#    pip install git+https://github.com/openai/CLIP.git@dcba3cb2e2827b402d2701e7e1c7d9fed8a20ef1 --no-build-isolation
 
-# 2. Taming Transformers (required by Stable Diffusion ldm)
-#    pip install git+https://github.com/CompVis/taming-transformers.git@3ba01b241669f5ade541ce990f7650a3b8f65318
-
-# 3. NSD Access (Natural Scenes Dataset utility library)
-#    Not available on PyPI. Install from:
+# 2. NSD Access (Natural Scenes Dataset utility library)
 #    pip install git+https://github.com/tknapen/nsd_access.git
-#    Requires NSD dataset access — see http://naturalscenesdataset.org
 
-# 4. Stable Diffusion v1.4 — ldm (local dependency)
-#    Clone CompVis stable-diffusion into codes/diffusion_sd1/:
+# 3. Stable Diffusion v1.4 — ldm (local editable install required)
+#    Must be cloned and installed as editable — pip git install does NOT work:
 #    mkdir -p codes/diffusion_sd1
 #    git clone https://github.com/CompVis/stable-diffusion codes/diffusion_sd1/stable-diffusion
-#    cd codes/diffusion_sd1/stable-diffusion && pip install -e .
+#    cd codes/diffusion_sd1/stable-diffusion && pip install -e . && cd ../../..
 #
-#    Place weights at:
-#    codes/diffusion_sd1/stable-diffusion/models/ldm/stable-diffusion-v1/sd-v1-4.ckpt
+#    SD weights (sd-v1-4.ckpt) are downloaded automatically via gated HuggingFace access.
+#    See README.md for token setup instructions.
+
+# 4. Taming Transformers (required by ldm — must also be local editable install)
+#    pip git install does NOT work reliably. Clone locally:
+#    git clone https://github.com/CompVis/taming-transformers codes/diffusion_sd1/taming-transformers
+#    cd codes/diffusion_sd1/taming-transformers && pip install -e . && cd ../../..
 #
-#    Download sd-v1-4.ckpt from:
-#    https://huggingface.co/CompVis/stable-diffusion-v1-4
+#    After installing, if import still fails, manually create __init__.py:
+#    Create empty file at: codes/diffusion_sd1/taming-transformers/taming/__init__.py
