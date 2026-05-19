@@ -38,6 +38,10 @@ USAGE
 # Reconstruct using best PSM config (MSE + 0.5×CosSim, default):
 python reconstruct.py --subject subj01 --gpu 0 --img_start 0 --img_end 99
 
+# With ground truth images for comparison:
+python reconstruct.py --subject subj01 --gpu 0 --img_start 0 --img_end 99 \
+    --gt_dir test_data/images
+
 # Reconstruct using a specific loss configuration:
 python reconstruct.py --subject subj01 --gpu 0 --img_start 0 --img_end 99 --loss_config MSE
 python reconstruct.py --subject subj01 --gpu 0 --img_start 0 --img_end 99 --loss_config MSE_0.7Cos
@@ -59,18 +63,28 @@ python reconstruct.py --subject subj01 --gpu 0 --img_dir /path/to/gt_images
 
 OUTPUT
 ------
-Saves to <output_dir>/image-cvpr/<subject>/samples/<img_idx:05d>/:
-  {img_idx:05d}_orig.png    — ground truth stimulus
+Saves to <output_dir>/<loss_config>/<img_idx:05d>/:
+  {img_idx:03d}_orig.png    — ground truth stimulus (if --gt_dir provided)
   sample_000.png            — reconstruction sample 1 of 5
   sample_001.png            — reconstruction sample 2 of 5
   ...
   sample_004.png            — reconstruction sample 5 of 5
+
+Example with loss_config=MSE_0.7Cos:
+  reconstructions/MSE_0.7Cos/00000/000_orig.png
+  reconstructions/MSE_0.7Cos/00000/sample_000.png
+  ...
+
+Ground truth images for visual comparison are available in the
+gated HuggingFace dataset under test_data/images/.
+See README.md for download instructions.
 """
 
 import argparse
 import h5py
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -98,6 +112,13 @@ _sd_path = os.path.abspath(
 )
 if _sd_path not in sys.path:
     sys.path.append(_sd_path)
+
+# ── Taming Transformers — required by ldm ─────────────────────────────────────
+_taming_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'codes', 'diffusion_sd1', 'taming-transformers')
+)
+if _taming_path not in sys.path:
+    sys.path.append(_taming_path)
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.util import instantiate_from_config
 
@@ -114,18 +135,18 @@ HF_REPO_TYPE = "dataset"
 # Available prediction configurations — matches filenames on HuggingFace
 # Each entry: (early_cortex_filename, ventral_cortex_filename)
 PREDICTION_CONFIGS = {
-    "MSE":          ("early/{s}_early_init_latent_pred_1.0MSE_0.0Cos.npy",
-                     "ventral/{s}_ventral_c_pred_1.0MSE_0.0Cos.npy"),
-    "MSE_0.3Cos":   ("early/{s}_early_init_latent_pred_1.0MSE_0.3Cos.npy",
-                     "ventral/{s}_ventral_c_pred_1.0MSE_0.3Cos.npy"),
-    "MSE_0.5Cos":   ("early/{s}_early_init_latent_pred_1.0MSE_0.5Cos.npy",
-                     "ventral/{s}_ventral_c_pred_1.0MSE_0.5Cos.npy"),
-    "MSE_0.7Cos":   ("early/{s}_early_init_latent_pred_1.0MSE_0.7Cos.npy",
-                     "ventral/{s}_ventral_c_pred_1.0MSE_0.7Cos.npy"),
-    "MSE_KLD":      ("early/{s}_early_init_latent_pred_KLD.npy",
-                     "ventral/{s}_ventral_c_pred_MSE_pt1KLD.npy"),
-    "baseline":     ("early/{s}_early_scores_init_latent.npy",
-                     "ventral/{s}_ventral_scores_c.npy"),
+    "MSE":          ("predictions/early/{s}_early_init_latent_pred_1.0MSE_0.0Cos.npy",
+                     "predictions/ventral/{s}_ventral_c_pred_1.0MSE_0.0Cos.npy"),
+    "MSE_0.3Cos":   ("predictions/early/{s}_early_init_latent_pred_1.0MSE_0.3Cos.npy",
+                     "predictions/ventral/{s}_ventral_c_pred_1.0MSE_0.3Cos.npy"),
+    "MSE_0.5Cos":   ("predictions/early/{s}_early_init_latent_pred_1.0MSE_0.5Cos.npy",
+                     "predictions/ventral/{s}_ventral_c_pred_1.0MSE_0.5Cos.npy"),
+    "MSE_0.7Cos":   ("predictions/early/{s}_early_init_latent_pred_1.0MSE_0.7Cos.npy",
+                     "predictions/ventral/{s}_ventral_c_pred_1.0MSE_0.7Cos.npy"),
+    "MSE_KLD":      ("predictions/early/{s}_early_init_latent_pred_KLD.npy",
+                     "predictions/ventral/{s}_ventral_c_pred_MSE_pt1KLD.npy"),
+    "baseline":     ("predictions/early/{s}_early_scores_init_latent.npy",
+                     "predictions/ventral/{s}_ventral_scores_c.npy"),
 }
 
 # SD weights — fixed regardless of config
@@ -230,7 +251,7 @@ def load_sd_model(config_path, ckpt_path, gpu, verbose=False):
     """Load frozen Stable Diffusion v1.4 model onto the specified GPU."""
     print(f"Loading SD model from {ckpt_path}")
     config = OmegaConf.load(config_path)
-    pl_sd  = torch.load(ckpt_path, map_location="cpu")
+    pl_sd  = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     if "global_step" in pl_sd:
         print(f"  Global step: {pl_sd['global_step']}")
     model = instantiate_from_config(config.model)
@@ -268,6 +289,7 @@ def reconstruct(
     subject, device,
     nsd_dir, mrifeat_dir, output_dir,
     ddim_steps, strength, scale, n_iter,
+    loss_config, gt_dir=None,
 ):
     """
     Run the dual-pathway reconstruction pipeline for a list of test image indices.
@@ -279,21 +301,32 @@ def reconstruct(
       4. DDIM reverse diffusion conditioned on scores_c → n_iter samples saved
     """
     t_enc       = int(strength * ddim_steps)
-    base_output = os.path.join(output_dir, f"image-cvpr/{subject}/samples")
+    # Output structure: reconstructions/<loss_config>/<img_idx:05d>/
+    base_output = os.path.join(output_dir, loss_config)
     os.makedirs(base_output, exist_ok=True)
 
-    # ── Load NSD test stimulus mapping ────────────────────────────────────────
-    expdesign   = scipy.io.loadmat(
-        os.path.join(nsd_dir, 'nsddata', 'experiments', 'nsd', 'nsd_expdesign.mat')
+    # ── NSD ground truth (optional — only for saving orig.png) ───────────────
+    expdesign_path = os.path.join(
+        nsd_dir, 'nsddata', 'experiments', 'nsd', 'nsd_expdesign.mat'
     )
-    sharedix    = expdesign['sharedix'] - 1    # 0-based shared (test) indices
-    nsda        = NSDAccess(nsd_dir)
-    sf          = h5py.File(nsda.stimuli_file, 'r')
-    sdataset    = sf.get('imgBrick')
-    stims_ave   = np.load(os.path.join(mrifeat_dir, subject, f'{subject}_stims_ave.npy'))
-    test_idx_list = np.where(
-        np.array([0 if s in sharedix else 1 for s in stims_ave]) == 0
-    )[0]
+    nsd_available = os.path.exists(expdesign_path)
+    sf = None
+
+    if nsd_available:
+        expdesign     = scipy.io.loadmat(expdesign_path)
+        sharedix      = expdesign['sharedix'] - 1
+        nsda          = NSDAccess(nsd_dir)
+        sf            = h5py.File(nsda.stimuli_file, 'r')
+        sdataset      = sf.get('imgBrick')
+        stims_ave     = np.load(os.path.join(mrifeat_dir, subject, f'{subject}_stims_ave.npy'))
+        test_idx_list = np.where(
+            np.array([0 if s in sharedix else 1 for s in stims_ave]) == 0
+        )[0]
+        print("  NSD data found — ground truth images will be saved alongside reconstructions.")
+    elif gt_dir is not None and os.path.isdir(gt_dir):
+        print(f"  Ground truth images found at: {gt_dir}")
+    else:
+        print("  No ground truth source — reconstructions only.")
 
     # ── Reconstruction loop ───────────────────────────────────────────────────
     with torch.no_grad():
@@ -303,7 +336,7 @@ def reconstruct(
                 uc = model.get_learned_conditioning([""])   # unconditional embedding
 
                 for img_idx in tqdm(img_indices, desc="Reconstructing"):
-                    if img_idx >= len(test_idx_list):
+                    if nsd_available and img_idx >= len(test_idx_list):
                         print(f"  Index {img_idx} out of range — skipping.")
                         continue
 
@@ -311,13 +344,20 @@ def reconstruct(
                     os.makedirs(folder, exist_ok=True)
 
                     # ── Save ground truth ─────────────────────────────────────
-                    te     = test_idx_list[img_idx]
-                    idx73k = stims_ave[te]
-                    orig   = np.squeeze(sdataset[idx73k, :, :, :]).astype(np.uint8)
-                    threading.Thread(
-                        target=save_image_async,
-                        args=(orig, os.path.join(folder, f"{img_idx:05d}_orig.png"))
-                    ).start()
+                    if nsd_available:
+                        # From NSD HDF5 directly
+                        te     = test_idx_list[img_idx]
+                        idx73k = stims_ave[te]
+                        orig   = np.squeeze(sdataset[idx73k, :, :, :]).astype(np.uint8)
+                        threading.Thread(
+                            target=save_image_async,
+                            args=(orig, os.path.join(folder, f"{img_idx:03d}_orig.png"))
+                        ).start()
+                    elif gt_dir is not None and os.path.isdir(gt_dir):
+                        # From local test_data/images/ folder (included in repo)
+                        gt_path = os.path.join(gt_dir, f"{img_idx:03d}.png")
+                        if os.path.isfile(gt_path):
+                            shutil.copy2(gt_path, os.path.join(folder, f"{img_idx:03d}_orig.png"))
 
                     # ── Stage 1: Decode init_latent → coarse image ────────────
                     # scores_latent row: (6400,) → (4, 40, 40)
@@ -355,7 +395,8 @@ def reconstruct(
                             args=(arr, os.path.join(folder, f"sample_{it:03d}.png"))
                         ).start()
 
-    sf.close()
+    if sf is not None:
+        sf.close()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -400,8 +441,11 @@ def parse_args():
                         help="Root NSD dataset directory. (default: ../../nsd/)")
     parser.add_argument("--mrifeat_dir", type=str, default="../../mrifeat/",
                         help="Directory of fMRI feature arrays. (default: ../../mrifeat/)")
-    parser.add_argument("--output_dir",  type=str, default="../../decoded/",
-                        help="Root output directory for reconstructions. (default: ../../decoded/)")
+    parser.add_argument("--gt_dir",      type=str, default="test_data/",
+                        help="Path to ground truth images folder. Defaults to test_data/images "
+                             "which is included in the repo. Set to None to disable.")
+    parser.add_argument("--output_dir",  type=str, default="reconstructions/",
+                        help="Root output directory for reconstructions. (default: reconstructions/)")
     parser.add_argument("--cache_dir",   type=str, default=".cache/retinareplay",
                         help="Local cache for gated HuggingFace files. (default: .cache/retinareplay)")
 
@@ -480,11 +524,13 @@ def main():
         strength=strength,
         scale=scale,
         n_iter=n_iter,
+        loss_config=args.loss_config,
+        gt_dir=args.gt_dir,
     )
     elapsed = time.time() - t0
     print(f"\nDone: {len(idxs)} images in {elapsed:.1f}s "
           f"({elapsed / len(idxs):.2f}s/img)")
-    print(f"Outputs saved to: {args.output_dir}/image-cvpr/{args.subject}/samples/")
+    print(f"Outputs saved to: {args.output_dir}/{args.loss_config}/")
 
 
 if __name__ == "__main__":
